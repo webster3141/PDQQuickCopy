@@ -3,87 +3,79 @@ import { useState } from "react";
 
 export default function PDFUploader() {
   const [sourcePDF, setSourcePDF] = useState(null);
-  const [targetPDF, setTargetPDF] = useState(null);
-  const [transferredPDF, setTransferredPDF] = useState(null);
+  const [destinationPDFs, setDestinationPDFs] = useState([null, null, null, null, null]);
+  const [selectedPDFs, setSelectedPDFs] = useState([]);
+  const [mismatchedFields, setMismatchedFields] = useState({});
 
-  const handleFileInput = (e, isSource) => {
+  const handleFileInput = (e, index, isSource) => {
     const file = e.target.files[0];
     if (file && file.type === "application/pdf") {
-      if (isSource) setSourcePDF(file);
-      else setTargetPDF(file);
+      if (isSource) {
+        setSourcePDF(file);
+      } else {
+        const newPDFs = [...destinationPDFs];
+        newPDFs[index] = file;
+        setDestinationPDFs(newPDFs);
+      }
     }
   };
 
-  const transferData = () => {
-    if (sourcePDF && targetPDF) {
-      setTransferredPDF(targetPDF);
-      alert("Data transferred successfully (simulated)");
-    }
+  const handleCheckboxChange = (index) => {
+    setSelectedPDFs((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+    );
   };
 
-  const previewFile = (file) => {
-    const fileURL = URL.createObjectURL(file);
-    window.open(fileURL);
+  const compareFieldsAndHighlight = () => {
+    // Simulate mismatched fields for demonstration
+    const fakeMismatchData = {};
+    selectedPDFs.forEach((i) => {
+      fakeMismatchData[i] = ["Field A", "Field C"];
+    });
+    setMismatchedFields(fakeMismatchData);
+    alert("Data transferred to selected PDFs (simulated)");
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">PDFQuickCopy</h1>
+    <div className="uploader" style={{ padding: "1rem" }}>
+      <h2>PDF Quick Copy</h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div className="border-2 border-dashed p-4 rounded-xl">
-          <h2 className="text-lg font-semibold mb-2">Upload Source PDF</h2>
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => handleFileInput(e, true)}
-          />
-          {sourcePDF && (
-            <div className="mt-4">
-              <p className="text-sm font-medium truncate">{sourcePDF.name}</p>
-              <button className="btn" onClick={() => previewFile(sourcePDF)}>
-                Preview
-              </button>
+      <div style={{ marginBottom: "1rem" }}>
+        <label><strong>Source PDF:</strong></label><br />
+        <input type="file" accept="application/pdf" onChange={(e) => handleFileInput(e, null, true)} />
+      </div>
+
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} style={{ marginBottom: "1rem" }}>
+          <label><strong>Destination PDF {i + 1}:</strong></label><br />
+          <input type="file" accept="application/pdf" onChange={(e) => handleFileInput(e, i, false)} />
+          <label style={{ marginLeft: "0.5rem" }}>
+            <input type="checkbox" checked={selectedPDFs.includes(i)} onChange={() => handleCheckboxChange(i)} />
+            Use this file
+          </label>
+          {mismatchedFields[i] && (
+            <div style={{ color: "red", marginTop: "0.25rem" }}>
+              <em>Non-matching fields:</em> {mismatchedFields[i].join(", ")}
             </div>
           )}
         </div>
+      ))}
 
-        <div className="border-2 border-dashed p-4 rounded-xl">
-          <h2 className="text-lg font-semibold mb-2">Upload Target PDF</h2>
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => handleFileInput(e, false)}
-          />
-          {targetPDF && (
-            <div className="mt-4">
-              <p className="text-sm font-medium truncate">{targetPDF.name}</p>
-              <button className="btn" onClick={() => previewFile(targetPDF)}>
-                Preview
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <button
-          className="btn-primary"
-          disabled={!sourcePDF || !targetPDF}
-          onClick={transferData}
-        >
-          Copy Data
-        </button>
-      </div>
-
-      {transferredPDF && (
-        <div className="mt-6 border p-4 rounded-xl">
-          <h2 className="text-lg font-semibold">Download Transferred PDF</h2>
-          <button className="btn" onClick={() => previewFile(transferredPDF)}>
-            Preview Final PDF
-          </button>
-        </div>
-      )}
+      <button
+        onClick={compareFieldsAndHighlight}
+        disabled={!sourcePDF || selectedPDFs.length === 0}
+        style={{
+          padding: "0.5rem 1rem",
+          fontSize: "1rem",
+          cursor: "pointer",
+          background: "#007bff",
+          color: "#fff",
+          border: "none",
+          borderRadius: "4px"
+        }}
+      >
+        Copy Data
+      </button>
     </div>
   );
 }
