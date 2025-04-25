@@ -1,81 +1,99 @@
 
-import { useState } from "react";
+import React, { useState } from 'react';
+import { PDFDocument } from 'pdf-lib';
 
 export default function PDFUploader() {
-  const [sourcePDF, setSourcePDF] = useState(null);
-  const [destinationPDFs, setDestinationPDFs] = useState([null, null, null, null, null]);
-  const [selectedPDFs, setSelectedPDFs] = useState([]);
-  const [mismatchedFields, setMismatchedFields] = useState({});
+  const [sourceFile, setSourceFile] = useState(null);
+  const [destFiles, setDestFiles] = useState([]);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [status, setStatus] = useState("");
 
-  const handleFileInput = (e, index, isSource) => {
-    const file = e.target.files[0];
-    if (file && file.type === "application/pdf") {
-      if (isSource) {
-        setSourcePDF(file);
-      } else {
-        const newPDFs = [...destinationPDFs];
-        newPDFs[index] = file;
-        setDestinationPDFs(newPDFs);
-      }
-    }
+  const handleSourceUpload = (e) => {
+    setSourceFile(e.target.files[0]);
   };
 
-  const handleCheckboxChange = (index) => {
-    setSelectedPDFs((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+  const handleDestUpload = (e) => {
+    setDestFiles(Array.from(e.target.files).slice(0, 5));
+  };
+
+  const handleCheckboxChange = (fileName) => {
+    setSelectedFiles(prev =>
+      prev.includes(fileName)
+        ? prev.filter(f => f !== fileName)
+        : [...prev, fileName]
     );
   };
 
-  const compareFieldsAndHighlight = () => {
-    // Simulate mismatched fields for demonstration
-    const fakeMismatchData = {};
-    selectedPDFs.forEach((i) => {
-      fakeMismatchData[i] = ["Field A", "Field C"];
+  const handleTransfer = async () => {
+    if (!sourceFile || selectedFiles.length === 0) {
+      setStatus("Please upload and select files.");
+      return;
+    }
+
+    const sourcePdf = await PDFDocument.load(await sourceFile.arrayBuffer());
+    const sourceForm = sourcePdf.getForm();
+    const sourceFields = sourceForm.getFields();
+    const sourceData = {};
+
+    sourceFields.forEach(field => {
+      const name = field.getName();
+      const value = field.getText ? field.getText() : '';
+      sourceData[name] = value;
     });
-    setMismatchedFields(fakeMismatchData);
-    alert("Data transferred to selected PDFs (simulated)");
+
+    for (let file of destFiles) {
+      if (!selectedFiles.includes(file.name)) continue;
+
+      const destPdf = await PDFDocument.load(await file.arrayBuffer());
+      const destForm = destPdf.getForm();
+      const destFields = destForm.getFields();
+
+      destFields.forEach(field => {
+        const name = field.getName();
+        if (sourceData[name]) {
+          field.setText(sourceData[name]);
+        }
+      });
+
+      const modifiedPdf = await destPdf.save();
+      const blob = new Blob([modifiedPdf], { type: 'application/pdf' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Updated_${file.name}`;
+      a.click();
+    }
+
+    setStatus("Transfer complete!");
   };
 
   return (
-    <div className="uploader" style={{ padding: "1rem" }}>
+    <div style={{ padding: '1rem' }}>
       <h2>PDF Quick Copy</h2>
-
-      <div style={{ marginBottom: "1rem" }}>
-        <label><strong>Source PDF:</strong></label><br />
-        <input type="file" accept="application/pdf" onChange={(e) => handleFileInput(e, null, true)} />
+      <div>
+        <label>Upload Source PDF:</label>
+        <input type="file" accept="application/pdf" onChange={handleSourceUpload} />
       </div>
-
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} style={{ marginBottom: "1rem" }}>
-          <label><strong>Destination PDF {i + 1}:</strong></label><br />
-          <input type="file" accept="application/pdf" onChange={(e) => handleFileInput(e, i, false)} />
-          <label style={{ marginLeft: "0.5rem" }}>
-            <input type="checkbox" checked={selectedPDFs.includes(i)} onChange={() => handleCheckboxChange(i)} />
-            Use this file
-          </label>
-          {mismatchedFields[i] && (
-            <div style={{ color: "red", marginTop: "0.25rem" }}>
-              <em>Non-matching fields:</em> {mismatchedFields[i].join(", ")}
-            </div>
-          )}
-        </div>
-      ))}
-
-      <button
-        onClick={compareFieldsAndHighlight}
-        disabled={!sourcePDF || selectedPDFs.length === 0}
-        style={{
-          padding: "0.5rem 1rem",
-          fontSize: "1rem",
-          cursor: "pointer",
-          background: "#007bff",
-          color: "#fff",
-          border: "none",
-          borderRadius: "4px"
-        }}
-      >
-        Copy Data
-      </button>
+      <div>
+        <label>Upload up to 5 Destination PDFs:</label>
+        <input type="file" accept="application/pdf" multiple onChange={handleDestUpload} />
+      </div>
+      <div>
+        <h4>Select destination PDFs to copy data into:</h4>
+        {destFiles.map(file => (
+          <div key={file.name}>
+            <input
+              type="checkbox"
+              checked={selectedFiles.includes(file.name)}
+              onChange={() => handleCheckboxChange(file.name)}
+            />
+            <label>{file.name}</label>
+          </div>
+        ))}
+      </div>
+      <button onClick={handleTransfer}>Transfer Data</button>
+      <p>{status}</p>
     </div>
   );
 }
+
+
